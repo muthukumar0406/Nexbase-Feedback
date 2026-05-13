@@ -16,7 +16,7 @@ export interface Feedback {
   providedIn: 'root'
 })
 export class ApiService {
-  private apiUrl = 'http://192.168.32.104:5000/api/feedback';
+  private apiUrl = `http://${window.location.hostname}:5000/api/feedback`;
 
   constructor(private http: HttpClient) {}
 

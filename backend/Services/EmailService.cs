@@ -18,10 +18,17 @@ namespace backend.Services
         {
             try
             {
+                if (_smtpSettings.Username == "yourmail@gmail.com" || string.IsNullOrEmpty(_smtpSettings.Password) || _smtpSettings.Password == "your-app-password")
+                {
+                    Console.WriteLine("SMTP credentials not configured. Skipping email.");
+                    return;
+                }
+
                 using var client = new SmtpClient(_smtpSettings.Host, _smtpSettings.Port)
                 {
                     Credentials = new NetworkCredential(_smtpSettings.Username, _smtpSettings.Password),
-                    EnableSsl = true
+                    EnableSsl = true,
+                    Timeout = 5000 // 5 second timeout
                 };
 
                 var mailMessage = new MailMessage
