@@ -103,9 +103,10 @@ export class FeedbackFormComponent {
         this.successMessage = 'Thank you! Your feedback has been submitted successfully.';
         this.feedbackForm.reset();
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
-        this.errorMessage = 'There was an error submitting your feedback. Please try again later.';
+        this.errorMessage = err.error || 'There was an error submitting your feedback. Please try again later.';
+        console.error('Submission error:', err);
       }
     });
   }

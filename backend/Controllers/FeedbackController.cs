@@ -83,6 +83,8 @@ namespace backend.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error in PostFeedback: {ex.Message}");
+                Console.WriteLine(ex.StackTrace);
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
