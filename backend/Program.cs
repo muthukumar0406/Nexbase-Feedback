@@ -53,6 +53,10 @@ using (var scope = app.Services.CreateScope())
     var logger = services.GetRequiredService<ILogger<Program>>();
     var context = services.GetRequiredService<AppDbContext>();
     
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    var maskedConnectionString = string.Join(";", connectionString?.Split(';').Select(p => p.Trim().StartsWith("Password", StringComparison.OrdinalIgnoreCase) ? "Password=***" : p) ?? Enumerable.Empty<string>());
+    logger.LogInformation("Using Connection String: {ConnectionString}", maskedConnectionString);
+    
     int maxRetries = 10;
     int delaySeconds = 5;
     

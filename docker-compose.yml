@@ -7,12 +7,13 @@ services:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=Nexbase@555
       - SA_PASSWORD=Nexbase@555
+      - MSSQL_PID=Developer
     ports:
       - "1433:1433"
     volumes:
       - sql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Nexbase@555' -Q 'SELECT 1' -C || exit 1"]
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Nexbase@555" -Q "SELECT 1" -C || exit 1
       interval: 10s
       timeout: 10s
       retries: 10
@@ -24,7 +25,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=db;Database=NexbaseFeedbackDb;User Id=sa;Password=Nexbase@555;TrustServerCertificate=True;
+      - ConnectionStrings__DefaultConnection=Server=db;Database=NexbaseFeedbackDb;User Id=sa;Password=Nexbase@555;TrustServerCertificate=True;Encrypt=False;
       - Formspree__Endpoint=https://formspree.io/f/YOUR_FORMSPREE_ID
     depends_on:
       - db
