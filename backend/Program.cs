@@ -10,7 +10,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Configure Database
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlServerOptionsAction: sqlOptions =>
+        {
+            sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 10,
+                maxRetryDelay: TimeSpan.FromSeconds(30),
+                errorNumbersToAdd: null);
+        }));
 
 // Configure Settings
 builder.Services.Configure<AdminSettings>(builder.Configuration.GetSection("AdminSettings"));
