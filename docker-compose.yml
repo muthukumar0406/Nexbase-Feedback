@@ -12,10 +12,10 @@ services:
     volumes:
       - sql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Nexbase@555' -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Nexbase@555' -Q 'SELECT 1' -C || exit 1"]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
 
   api:
     build:
@@ -27,8 +27,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=db;Database=NexbaseFeedbackDb;User Id=sa;Password=Nexbase@555;TrustServerCertificate=True;
       - Formspree__Endpoint=https://formspree.io/f/YOUR_FORMSPREE_ID
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   webapp:
     build:
