@@ -5,11 +5,17 @@ services:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
       - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Nexbase@555
       - SA_PASSWORD=Nexbase@555
     ports:
       - "1433:1433"
     volumes:
       - sql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Nexbase@555' -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -18,10 +24,11 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - ConnectionStrings__DefaultConnection=Server=db;Database=NexbaseFeedbackDb;User Id=sa;Password=Nexbase@555;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=db;Database=NexbaseFeedbackDb;User Id=sa;Password=Nexbase@555;TrustServerCertificate=True;
       - Formspree__Endpoint=https://formspree.io/f/YOUR_FORMSPREE_ID
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   webapp:
     build:

@@ -39,24 +39,53 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Apply migrations automatically
+// Apply migrations automatically with retries
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    try
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    var context = services.GetRequiredService<AppDbContext>();
+    
+    int maxRetries = 10;
+    int delaySeconds = 5;
+    
+    for (int i = 0; i < maxRetries; i++)
     {
-        var context = services.GetRequiredService<AppDbContext>();
-        if (context.Database.GetPendingMigrations().Any())
+        try
         {
-            context.Database.Migrate();
+            logger.LogInformation("Attempting to apply migrations (Attempt {Attempt}/{MaxRetries})...", i + 1, maxRetries);
+            
+            // Check if we can connect
+            if (context.Database.CanConnect())
+            {
+                if (context.Database.GetPendingMigrations().Any())
+                {
+                    context.Database.Migrate();
+                    logger.LogInformation("Migrations applied successfully.");
+                }
+                else
+                {
+                    logger.LogInformation("No pending migrations found.");
+                }
+                break;
+            }
+            else
+            {
+                logger.LogWarning("Cannot connect to database yet. Retrying in {Delay}s...", delaySeconds);
+            }
         }
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while migrating the database on attempt {Attempt}.", i + 1);
+            if (i == maxRetries - 1) throw;
+        }
+        
+        Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
     }
 }
+
+// Add a simple health check endpoint
+app.MapGet("/ping", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment() || Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true")
