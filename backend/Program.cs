@@ -68,30 +68,22 @@ _ = Task.Run(async () =>
             {
                 logger.LogInformation("Background: Attempting to apply migrations (Attempt {Attempt}/{MaxRetries})...", i + 1, maxRetries);
                 
-                // Explicitly try to open connection to get the real error message if it fails
                 try 
                 {
-                    await context.Database.OpenConnectionAsync();
-                    await context.Database.CloseConnectionAsync();
-                    
-                    if ((await context.Database.GetPendingMigrationsAsync()).Any())
-                    {
-                        await context.Database.MigrateAsync();
-                        logger.LogInformation("Background: Migrations applied successfully.");
-                    }
-                    else
-                    {
-                        logger.LogInformation("Background: No pending migrations found.");
-                    }
+                    // MigrateAsync will automatically create the database if it doesn't exist
+                    await context.Database.MigrateAsync();
+                    logger.LogInformation("Background: Database is ready and migrations are applied.");
                     break;
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning("Background: Connection attempt {Attempt} failed. Error: {ErrorMessage}", i + 1, ex.Message);
-                    if (ex.InnerException != null)
+                    // Check if it's a login failure vs a connection failure
+                    if (ex.Message.Contains("Login failed") || (ex.InnerException?.Message.Contains("Login failed") ?? false))
                     {
-                        logger.LogWarning("Background: Inner Error: {InnerMessage}", ex.InnerException.Message);
+                        logger.LogError("Background: Login failed for 'sa'. Please check if the password 'Nexbase@555' matches the one used when the volume was created.");
                     }
+                    
+                    logger.LogWarning("Background: Attempt {Attempt} failed. Error: {ErrorMessage}", i + 1, ex.Message);
                     logger.LogInformation("Background: Retrying in {Delay}s...", delaySeconds);
                 }
             }
