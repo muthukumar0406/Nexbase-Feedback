@@ -46,54 +46,55 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Apply migrations automatically with retries
-using (var scope = app.Services.CreateScope())
+// Run migrations in the background so the web server can start immediately
+_ = Task.Run(async () =>
 {
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    var context = services.GetRequiredService<AppDbContext>();
-    
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-    var maskedConnectionString = string.Join(";", connectionString?.Split(';').Select(p => p.Trim().StartsWith("Password", StringComparison.OrdinalIgnoreCase) ? "Password=***" : p) ?? Enumerable.Empty<string>());
-    logger.LogInformation("Using Connection String: {ConnectionString}", maskedConnectionString);
-    
-    int maxRetries = 10;
-    int delaySeconds = 5;
-    
-    for (int i = 0; i < maxRetries; i++)
+    using (var scope = app.Services.CreateScope())
     {
-        try
+        var services = scope.ServiceProvider;
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        var context = services.GetRequiredService<AppDbContext>();
+        
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        var maskedConnectionString = string.Join(";", connectionString?.Split(';').Select(p => p.Trim().StartsWith("Password", StringComparison.OrdinalIgnoreCase) ? "Password=***" : p) ?? Enumerable.Empty<string>());
+        logger.LogInformation("Background: Using Connection String: {ConnectionString}", maskedConnectionString);
+        
+        int maxRetries = 15;
+        int delaySeconds = 10;
+        
+        for (int i = 0; i < maxRetries; i++)
         {
-            logger.LogInformation("Attempting to apply migrations (Attempt {Attempt}/{MaxRetries})...", i + 1, maxRetries);
-            
-            // Check if we can connect
-            if (context.Database.CanConnect())
+            try
             {
-                if (context.Database.GetPendingMigrations().Any())
+                logger.LogInformation("Background: Attempting to apply migrations (Attempt {Attempt}/{MaxRetries})...", i + 1, maxRetries);
+                
+                if (await context.Database.CanConnectAsync())
                 {
-                    context.Database.Migrate();
-                    logger.LogInformation("Migrations applied successfully.");
+                    if ((await context.Database.GetPendingMigrationsAsync()).Any())
+                    {
+                        await context.Database.MigrateAsync();
+                        logger.LogInformation("Background: Migrations applied successfully.");
+                    }
+                    else
+                    {
+                        logger.LogInformation("Background: No pending migrations found.");
+                    }
+                    break;
                 }
                 else
                 {
-                    logger.LogInformation("No pending migrations found.");
+                    logger.LogWarning("Background: Cannot connect to database yet. Retrying in {Delay}s...", delaySeconds);
                 }
-                break;
             }
-            else
+            catch (Exception ex)
             {
-                logger.LogWarning("Cannot connect to database yet. Retrying in {Delay}s...", delaySeconds);
+                logger.LogError(ex, "Background: Error on attempt {Attempt}.", i + 1);
             }
+            
+            await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "An error occurred while migrating the database on attempt {Attempt}.", i + 1);
-            if (i == maxRetries - 1) throw;
-        }
-        
-        Thread.Sleep(TimeSpan.FromSeconds(delaySeconds));
     }
-}
+});
 
 // Add a simple health check endpoint
 app.MapGet("/ping", () => Results.Ok(new { Status = "Healthy", Timestamp = DateTime.UtcNow }));
