@@ -88,7 +88,11 @@ _ = Task.Run(async () =>
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Background: Error on attempt {Attempt}.", i + 1);
+                logger.LogError("Background: Connection attempt {Attempt} failed. Error: {ErrorMessage}", i + 1, ex.Message);
+                if (ex.InnerException != null)
+                {
+                    logger.LogError("Background: Inner Error: {InnerMessage}", ex.InnerException.Message);
+                }
             }
             
             await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
