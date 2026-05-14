@@ -68,8 +68,12 @@ _ = Task.Run(async () =>
             {
                 logger.LogInformation("Background: Attempting to apply migrations (Attempt {Attempt}/{MaxRetries})...", i + 1, maxRetries);
                 
-                if (await context.Database.CanConnectAsync())
+                // Explicitly try to open connection to get the real error message if it fails
+                try 
                 {
+                    await context.Database.OpenConnectionAsync();
+                    await context.Database.CloseConnectionAsync();
+                    
                     if ((await context.Database.GetPendingMigrationsAsync()).Any())
                     {
                         await context.Database.MigrateAsync();
@@ -81,18 +85,19 @@ _ = Task.Run(async () =>
                     }
                     break;
                 }
-                else
+                catch (Exception ex)
                 {
-                    logger.LogWarning("Background: Cannot connect to database yet. Retrying in {Delay}s...", delaySeconds);
+                    logger.LogWarning("Background: Connection attempt {Attempt} failed. Error: {ErrorMessage}", i + 1, ex.Message);
+                    if (ex.InnerException != null)
+                    {
+                        logger.LogWarning("Background: Inner Error: {InnerMessage}", ex.InnerException.Message);
+                    }
+                    logger.LogInformation("Background: Retrying in {Delay}s...", delaySeconds);
                 }
             }
             catch (Exception ex)
             {
-                logger.LogError("Background: Connection attempt {Attempt} failed. Error: {ErrorMessage}", i + 1, ex.Message);
-                if (ex.InnerException != null)
-                {
-                    logger.LogError("Background: Inner Error: {InnerMessage}", ex.InnerException.Message);
-                }
+                logger.LogError(ex, "Background: Critical error on attempt {Attempt}.", i + 1);
             }
             
             await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
